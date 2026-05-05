@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sashu's RP Mobiles — Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #FF6B35;
+    --navy: #1A1A2E;
+    --navy-light: #22224a;
+    --bg: #F0F2F5;
+    --card: #FFFFFF;
+    --green: #22C55E;
+    --orange: #F97316;
+    --red: #EF4444;
+    --blue: #3B82F6;
+    --purple: #7C3AED;
+    --yellow: #EAB308;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --sidebar-w: 240px;
+    --sidebar-collapsed: 64px;
+    --topbar-h: 60px;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.07);
+  }
+
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+
+  /* SIDEBAR */
+  .sidebar {
+    position: fixed; top: 0; left: 0; height: 100vh; width: var(--sidebar-w);
+    background: var(--navy); display: flex; flex-direction: column;
+    transition: width 0.3s ease; z-index: 100; overflow: hidden;
+  }
+  .sidebar.collapsed { width: var(--sidebar-collapsed); }
+  .sidebar-logo {
+    padding: 0 16px; height: var(--topbar-h); display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0;
+  }
+  .logo-icon { width: 34px; height: 34px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 800; color: white; font-size: 16px; flex-shrink: 0; }
+  .logo-text { font-family: 'Syne', sans-serif; font-weight: 700; color: white; font-size: 14px; line-height: 1.3; white-space: nowrap; overflow: hidden; }
+  .logo-text span { display: block; font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.5); }
+
+  .sidebar-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px;
+    cursor: pointer; color: rgba(255,255,255,0.6); font-size: 14px; font-weight: 500;
+    transition: all 0.2s; white-space: nowrap; margin-bottom: 2px; position: relative;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+  .nav-item.active { background: var(--primary); color: white; }
+  .nav-item .nav-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
+  .nav-label { overflow: hidden; transition: opacity 0.2s; }
+  .sidebar.collapsed .nav-label { opacity: 0; pointer-events: none; }
+  .sidebar.collapsed .logo-text { opacity: 0; }
+
+  .sidebar-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.07); }
+  .version { font-size: 11px; color: rgba(255,255,255,0.3); white-space: nowrap; }
+  .sidebar.collapsed .version { opacity: 0; }
+
+  .sidebar-toggle {
+    position: absolute; top: 14px; right: -14px; width: 28px; height: 28px;
+    background: var(--primary); border-radius: 50%; border: none; cursor: pointer;
+    color: white; font-size: 14px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 101; transition: transform 0.3s;
+  }
+  .sidebar.collapsed .sidebar-toggle { transform: rotate(180deg); }
+
+  /* TOPBAR */
+  .topbar {
+    position: fixed; top: 0; left: var(--sidebar-w); right: 0; height: var(--topbar-h);
+    background: white; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; z-index: 99; transition: left 0.3s;
+  }
+  .topbar.collapsed { left: var(--sidebar-collapsed); }
+  .topbar-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: var(--text); }
+  .topbar-right { display: flex; align-items: center; gap: 16px; }
+  .topbar-date { font-size: 13px; color: var(--muted); }
+  .avatar { width: 36px; height: 36px; background: var(--primary); border-radius: 50%; color: white; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+  /* MAIN */
+  .main {
+    margin-left: var(--sidebar-w); padding-top: var(--topbar-h); min-height: 100vh;
+    transition: margin-left 0.3s;
+  }
+  .main.collapsed { margin-left: var(--sidebar-collapsed); }
+  .page { display: none; padding: 24px; }
+  .page.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* CARDS */
+  .cards-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .card {
+    background: var(--card); border-radius: var(--radius); padding: 20px;
+    box-shadow: var(--shadow); border-left: 4px solid transparent; position: relative; overflow: hidden;
+  }
+  .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px; }
+  .card-value { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--text); }
+  .card-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .card-icon { position: absolute; right: 16px; top: 16px; font-size: 28px; opacity: 0.15; }
+
+  /* CHARTS ROW */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .chart-card { background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .chart-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 16px; }
+  .chart-wrap { height: 200px; position: relative; }
+
+  /* TABLES ROW */
+  .tables-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .table-card { background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .table-card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--navy); color: rgba(255,255,255,0.85); padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  th:first-child { border-radius: 6px 0 0 6px; }
+  th:last-child { border-radius: 0 6px 6px 0; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8fafc; }
+
+  /* PAGE HEADERS */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .page-header h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; }
+  .btn { padding: 9px 18px; border-radius: 7px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: #e55a25; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,107,53,0.35); }
+  .btn-blue { background: var(--blue); color: white; }
+  .btn-red { background: var(--red); color: white; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 5px; }
+
+  /* BADGES */
+  .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+  .badge-yellow { background: #fef9c3; color: #854d0e; }
+
+  /* SEARCH / FILTER BAR */
+  .filter-bar { display: flex; gap: 12px; margin-bottom: 16px; }
+  .filter-bar input, .filter-bar select {
+    padding: 9px 14px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; background: white;
+    color: var(--text); outline: none; transition: border-color 0.2s;
+  }
+  .filter-bar input:focus, .filter-bar select:focus { border-color: var(--primary); }
+  .filter-bar input { flex: 1; }
+
+  /* SUMMARY BAR */
+  .summary-bar { background: white; border-radius: var(--radius); padding: 18px 24px; box-shadow: var(--shadow); margin-bottom: 20px; display: flex; gap: 32px; }
+  .summary-item { text-align: center; }
+  .summary-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .summary-value { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-top: 2px; }
+
+  /* STATUS TABS */
+  .status-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .status-tab {
+    padding: 7px 16px; border-radius: 6px; border: 1.5px solid var(--border);
+    background: white; cursor: pointer; font-size: 13px; font-weight: 600;
+    color: var(--muted); transition: all 0.2s;
+  }
+  .status-tab.active { background: var(--primary); border-color: var(--primary); color: white; }
+  .status-tab:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+
+  /* REPORTS */
+  .reports-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .report-card { background: white; border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); text-align: center; }
+  .report-icon { font-size: 36px; margin-bottom: 12px; }
+  .report-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+  .report-desc { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+
+  /* SETTINGS */
+  .settings-section { background: white; border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
+  .settings-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .form-input {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: var(--bg);
+    outline: none; transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--primary); background: white; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    z-index: 200; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white; border-radius: 14px; padding: 28px; width: 480px; max-width: 95vw;
+    max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    animation: modalIn 0.25s ease;
+  }
+  @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .modal-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+  .modal-close { background: none; border: none; cursor: pointer; font-size: 22px; color: var(--muted); transition: color 0.2s; }
+  .modal-close:hover { color: var(--red); }
+  .modal-actions { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; }
+  .modal select { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 14px; background: white; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--green); color: white;
+    padding: 14px 22px; border-radius: 10px; font-weight: 600; font-size: 14px;
+    box-shadow: 0 8px 24px rgba(34,197,94,0.35); z-index: 300;
+    transform: translateY(80px); opacity: 0; transition: all 0.35s cubic-bezier(.34,1.56,.64,1);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .cards-row { grid-template-columns: repeat(2, 1fr); }
+    .charts-row, .tables-row { grid-template-columns: 1fr; }
+    .reports-grid { grid-template-columns: repeat(2, 1fr); }
+    .form-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .sidebar { width: var(--sidebar-collapsed) !important; }
+    .sidebar .nav-label, .sidebar .logo-text, .sidebar .version { opacity: 0; }
+    .main, .topbar { margin-left: var(--sidebar-collapsed) !important; left: var(--sidebar-collapsed) !important; }
+    .cards-row { grid-template-columns: 1fr 1fr; }
+    .reports-grid { grid-template-columns: 1fr; }
+    .summary-bar { flex-wrap: wrap; gap: 16px; }
+    .page { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <button class="sidebar-toggle" onclick="toggleSidebar()">‹</button>
+  <div class="sidebar-logo">
+    <div class="logo-icon">SR</div>
+    <div class="logo-text">Sashu's RP Mobiles<span>Uthukuli, Tamil Nadu</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" onclick="navigate('dashboard', this)"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></div>
+    <div class="nav-item" onclick="navigate('inventory', this)"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></div>
+    <div class="nav-item" onclick="navigate('sales', this)"><span class="nav-icon">🧾</span><span class="nav-label">Sales</span></div>
+    <div class="nav-item" onclick="navigate('service', this)"><span class="nav-icon">🔧</span><span class="nav-label">Service Jobs</span></div>
+    <div class="nav-item" onclick="navigate('customers', this)"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></div>
+    <div class="nav-item" onclick="navigate('reports', this)"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></div>
+    <div class="nav-item" onclick="navigate('settings', this)"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
+  </nav>
+  <div class="sidebar-footer"><div class="version">D4 Dashboard · v1.0 · May 2026</div></div>
+</aside>
+
+<!-- TOPBAR -->
+<header class="topbar" id="topbar">
+  <div class="topbar-title" id="page-title">Dashboard</div>
+  <div class="topbar-right">
+    <div class="topbar-date" id="topbar-date"></div>
+    <div class="avatar" title="Sashu">S</div>
+  </div>
+</header>
+
+<!-- MAIN CONTENT -->
+<main class="main" id="main">
+
+  <!-- DASHBOARD PAGE -->
+  <div class="page active" id="page-dashboard">
+    <div class="cards-row">
+      <div class="card" style="border-left-color: var(--green)">
+        <div class="card-title">Today's Sales</div>
+        <div class="card-value">₹4,850</div>
+        <div class="card-sub">3 transactions today</div>
+        <div class="card-icon">💰</div>
+      </div>
+      <div class="card" style="border-left-color: var(--orange)">
+        <div class="card-title">Open Service Jobs</div>
+        <div class="card-value">7</div>
+        <div class="card-sub">2 due today</div>
+        <div class="card-icon">🔧</div>
+      </div>
+      <div class="card" style="border-left-color: var(--red)">
+        <div class="card-title">Low Stock Alerts</div>
+        <div class="card-value">4</div>
+        <div class="card-sub">Below threshold</div>
+        <div class="card-icon">⚠️</div>
+      </div>
+      <div class="card" style="border-left-color: var(--blue)">
+        <div class="card-title">Total Customers</div>
+        <div class="card-value">128</div>
+        <div class="card-sub">+3 this week</div>
+        <div class="card-icon">👥</div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">📊 Monthly Revenue</div>
+        <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📱 Sales by Brand</div>
+        <div class="chart-wrap"><canvas id="brandChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="tables-row">
+      <div class="table-card">
+        <div class="table-card-title">🧾 Recent Sales</div>
+        <table>
+          <thead><tr><th>Item</th><th>Brand</th><th>Amount</th><th>Payment</th></tr></thead>
+          <tbody>
+            <tr><td>Samsung Galaxy A15</td><td>Samsung</td><td>₹11,999</td><td>UPI</td></tr>
+            <tr><td>Realme C55</td><td>Realme</td><td>₹12,499</td><td>Cash</td></tr>
+            <tr><td>Earphones</td><td>—</td><td>₹350</td><td>Cash</td></tr>
+            <tr><td>Vivo Y17s</td><td>Vivo</td><td>₹10,999</td><td>UPI</td></tr>
+            <tr><td>Tempered Glass</td><td>—</td><td>₹120</td><td>Cash</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-card">
+        <div class="table-card-title">🔧 Pending Service Jobs</div>
+        <table>
+          <thead><tr><th>Job ID</th><th>Device</th><th>Status</th><th>Due</th></tr></thead>
+          <tbody>
+            <tr><td>SRV-021</td><td>Samsung A12</td><td><span class="badge badge-yellow">In Progress</span></td><td>05 May</td></tr>
+            <tr><td>SRV-022</td><td>Realme C31</td><td><span class="badge badge-blue">Received</span></td><td>06 May</td></tr>
+            <tr><td>SRV-023</td><td>Vivo Y21</td><td><span class="badge badge-yellow">In Progress</span></td><td>05 May</td></tr>
+            <tr><td>SRV-024</td><td>Oppo A57</td><td><span class="badge badge-blue">Received</span></td><td>07 May</td></tr>
+            <tr><td>SRV-025</td><td>Mi Redmi 12</td><td><span class="badge badge-green">Completed</span></td><td>04 May</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVENTORY PAGE -->
+  <div class="page" id="page-inventory">
+    <div class="page-header">
+      <h2>All Products</h2>
+      <button class="btn btn-primary" onclick="openModal('addProduct')">+ Add Product</button>
+    </div>
+    <div class="filter-bar">
+      <input type="text" placeholder="🔍  Search by model name..." oninput="filterInventory()" id="invSearch">
+      <select onchange="filterInventory()" id="invBrand">
+        <option value="">All Brands</option>
+        <option>Samsung</option><option>OnePlus</option><option>Vivo</option>
+        <option>Oppo</option><option>Realme</option><option>Mi</option>
+      </select>
+      <select onchange="filterInventory()" id="invType">
+        <option value="">All Types</option>
+        <option>Phone</option><option>Accessory</option>
+      </select>
+    </div>
+    <div class="table-card" style="padding: 0; overflow: hidden;">
+      <table id="invTable">
+        <thead><tr><th>Brand</th><th>Model</th><th>Type</th><th>Purchase ₹</th><th>Selling ₹</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="invBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SALES PAGE -->
+  <div class="page" id="page-sales">
+    <div class="page-header">
+      <h2>Sales Transactions</h2>
+      <button class="btn btn-primary" onclick="openModal('newSale')">+ New Sale</button>
+    </div>
+    <div class="summary-bar">
+      <div class="summary-item"><div class="summary-label">Today</div><div class="summary-value" style="color:var(--green)">₹4,850</div></div>
+      <div class="summary-item"><div class="summary-label">This Week</div><div class="summary-value" style="color:var(--blue)">₹31,200</div></div>
+      <div class="summary-item"><div class="summary-label">This Month</div><div class="summary-value" style="color:var(--primary)">₹88,400</div></div>
+      <div class="summary-item"><div class="summary-label">All Time</div><div class="summary-value">₹4,23,150</div></div>
+    </div>
+    <div class="table-card" style="padding: 0; overflow: hidden;">
+      <table>
+        <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Item</th><th>Amount</th><th>Payment</th></tr></thead>
+        <tbody>
+          <tr><td>INV-084</td><td>05 May</td><td>Ravi Kumar</td><td>Samsung Galaxy A15</td><td>₹11,999</td><td>UPI</td></tr>
+          <tr><td>INV-083</td><td>05 May</td><td>Priya</td><td>Realme C55</td><td>₹12,499</td><td>Cash</td></tr>
+          <tr><td>INV-082</td><td>05 May</td><td>Walk-in</td><td>Tempered Glass (x2)</td><td>₹240</td><td>Cash</td></tr>
+          <tr><td>INV-081</td><td>04 May</td><td>Murugan</td><td>Vivo Y17s</td><td>₹10,999</td><td>UPI</td></tr>
+          <tr><td>INV-080</td><td>04 May</td><td>Selvi</td><td>Earphones</td><td>₹350</td><td>Cash</td></tr>
+          <tr><td>INV-079</td><td>03 May</td><td>Arjun</td><td>Mi Redmi 12</td><td>₹12,299</td><td>Card</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SERVICE JOBS PAGE -->
+  <div class="page" id="page-service">
+    <div class="page-header">
+      <h2>Service Jobs</h2>
+      <button class="btn btn-primary" onclick="openModal('newJob')">+ New Job</button>
+    </div>
+    <div class="status-tabs">
+      <div class="status-tab active" onclick="filterService('All', this)">All (12)</div>
+      <div class="status-tab" onclick="filterService('Received', this)">Received (3)</div>
+      <div class="status-tab" onclick="filterService('In Progress', this)">In Progress (4)</div>
+      <div class="status-tab" onclick="filterService('Completed', this)">Completed (3)</div>
+      <div class="status-tab" onclick="filterService('Delivered', this)">Delivered (2)</div>
+    </div>
+    <div class="table-card" style="padding: 0; overflow: hidden;">
+      <table>
+        <thead><tr><th>Job ID</th><th>Date</th><th>Customer</th><th>Device</th><th>Issue</th><th>Status</th><th>Est. Cost</th><th>Due</th></tr></thead>
+        <tbody id="serviceBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CUSTOMERS PAGE -->
+  <div class="page" id="page-customers">
+    <div class="page-header">
+      <h2>Customers</h2>
+      <input type="text" placeholder="🔍  Search by name or phone..." style="padding:9px 14px;border:1px solid var(--border);border-radius:7px;font-size:13px;width:260px;outline:none" oninput="filterCustomers(this.value)">
+    </div>
+    <div class="table-card" style="padding: 0; overflow: hidden;">
+      <table>
+        <thead><tr><th>Name</th><th>Phone</th><th>Purchases</th><th>Service Jobs</th><th>Last Visit</th></tr></thead>
+        <tbody id="custBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- REPORTS PAGE -->
+  <div class="page" id="page-reports">
+    <div class="page-header"><h2>Reports</h2></div>
+    <div class="reports-grid">
+      <div class="report-card"><div class="report-icon">📅</div><div class="report-title">Daily Sales Report</div><div class="report-desc">All sales for a selected date with totals and payment breakdown.</div><button class="btn btn-primary" onclick="showToast('Generating Daily Sales Report…')">Generate Report</button></div>
+      <div class="report-card"><div class="report-icon">📊</div><div class="report-title">Monthly Revenue Report</div><div class="report-desc">Revenue trends by month shown as a chart and table.</div><button class="btn btn-primary" onclick="showToast('Generating Monthly Revenue Report…')">Generate Report</button></div>
+      <div class="report-card"><div class="report-icon">📱</div><div class="report-title">Brand-wise Sales Report</div><div class="report-desc">Which brands sell most, shown by units sold and total value.</div><button class="btn btn-primary" onclick="showToast('Generating Brand-wise Sales Report…')">Generate Report</button></div>
+      <div class="report-card"><div class="report-icon">💰</div><div class="report-title">Profit Report</div><div class="report-desc">Revenue minus purchase cost to show net profit per item and overall.</div><button class="btn btn-primary" onclick="showToast('Generating Profit Report…')">Generate Report</button></div>
+      <div class="report-card"><div class="report-icon">🔧</div><div class="report-title">Service Job Report</div><div class="report-desc">All repair jobs filtered by status for a chosen date range.</div><button class="btn btn-primary" onclick="showToast('Generating Service Job Report…')">Generate Report</button></div>
+      <div class="report-card"><div class="report-icon">⚠️</div><div class="report-title">Low Stock Report</div><div class="report-desc">All products currently below the minimum quantity threshold.</div><button class="btn btn-primary" onclick="showToast('Generating Low Stock Report…')">Generate Report</button></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS PAGE -->
+  <div class="page" id="page-settings">
+    <div class="page-header"><h2>Settings</h2></div>
+    <div class="settings-section">
+      <div class="settings-title">🏪 Shop Information</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Shop Name</label><input class="form-input" value="Sashu's RP Mobiles"></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-input" value="+91 90438 00000"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Address</label><input class="form-input" value="148, Eswaran Kovil Street, Mahalakshmi Nagar Main Rd, Karatupalayam, Uthukuli, Tamil Nadu 638751"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Low Stock Alert Threshold (units)</label><input class="form-input" type="number" value="2"></div>
+        <div class="form-group"><label class="form-label">Invoice Footer Message</label><input class="form-input" value="Thank you for shopping at RP Mobiles!"></div>
+      </div>
+      <button class="btn btn-primary" onclick="showToast('Settings saved successfully! ✓')">Save Settings</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-addProduct" onclick="closeModal('addProduct', event)">
+  <div class="modal">
+    <div class="modal-title">Add New Product <button class="modal-close" onclick="closeModal('addProduct')">×</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Brand</label><select class="form-input"><option>Samsung</option><option>OnePlus</option><option>Vivo</option><option>Oppo</option><option>Realme</option><option>Mi</option><option>Other</option></select></div>
+      <div class="form-group"><label class="form-label">Category</label><select class="form-input"><option>Phone</option><option>Accessory</option></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Model Name</label><input class="form-input" placeholder="e.g. Galaxy A15"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Purchase Price (₹)</label><input class="form-input" type="number" placeholder="10200"></div>
+      <div class="form-group"><label class="form-label">Selling Price (₹)</label><input class="form-input" type="number" placeholder="11999"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Quantity</label><input class="form-input" type="number" placeholder="5"></div>
+      <div class="form-group"><label class="form-label">IMEI Number (optional)</label><input class="form-input" placeholder="For phones only"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" style="background:var(--bg);color:var(--muted)" onclick="closeModal('addProduct')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('addProduct');showToast('Product added successfully! ✓')">Add Product</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-newSale" onclick="closeModal('newSale', event)">
+  <div class="modal">
+    <div class="modal-title">New Sale <button class="modal-close" onclick="closeModal('newSale')">×</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Customer Name</label><input class="form-input" placeholder="Enter name"></div>
+      <div class="form-group"><label class="form-label">Customer Phone</label><input class="form-input" placeholder="9876543210"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Item Sold</label><select class="form-input"><option>Samsung Galaxy A15 — ₹11,999</option><option>Realme C55 — ₹12,499</option><option>Vivo Y17s — ₹10,999</option><option>Oppo A57 — ₹12,999</option><option>Mi Redmi 12 — ₹12,299</option><option>Earphones — ₹350</option><option>Tempered Glass — ₹120</option></select></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Quantity</label><input class="form-input" type="number" value="1"></div>
+      <div class="form-group"><label class="form-label">Discount (₹)</label><input class="form-input" type="number" value="0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Payment Method</label><select class="form-input"><option>Cash</option><option>UPI</option><option>Card</option></select></div>
+    <div class="modal-actions">
+      <button class="btn" style="background:var(--bg);color:var(--muted)" onclick="closeModal('newSale')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('newSale');showToast('Sale recorded successfully! ✓')">Record Sale</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-newJob" onclick="closeModal('newJob', event)">
+  <div class="modal">
+    <div class="modal-title">New Service Job <button class="modal-close" onclick="closeModal('newJob')">×</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Customer Name</label><input class="form-input" placeholder="Enter name"></div>
+      <div class="form-group"><label class="form-label">Customer Phone</label><input class="form-input" placeholder="9876543210"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Device Brand</label><select class="form-input"><option>Samsung</option><option>Realme</option><option>Vivo</option><option>Oppo</option><option>Mi</option><option>OnePlus</option><option>Other</option></select></div>
+      <div class="form-group"><label class="form-label">Device Model</label><input class="form-input" placeholder="e.g. Galaxy A12"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Issue Description</label><textarea class="form-input" rows="3" placeholder="Describe the problem…" style="resize:vertical"></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Estimated Cost (₹)</label><input class="form-input" type="number" placeholder="500"></div>
+      <div class="form-group"><label class="form-label">Expected Completion</label><input class="form-input" type="date"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" style="background:var(--bg);color:var(--muted)" onclick="closeModal('newJob')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('newJob');showToast('Service job created! ✓')">Create Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓ <span id="toast-msg">Success</span></div>
+
+<script>
+// DATA
+const inventory = [
+  {brand:'Samsung',model:'Galaxy A15',type:'Phone',buy:10200,sell:11999,qty:5,status:'In Stock'},
+  {brand:'Realme',model:'C55',type:'Phone',buy:10800,sell:12499,qty:3,status:'In Stock'},
+  {brand:'Vivo',model:'Y17s',type:'Phone',buy:9500,sell:10999,qty:2,status:'Low Stock'},
+  {brand:'Oppo',model:'A57',type:'Phone',buy:11000,sell:12999,qty:1,status:'Low Stock'},
+  {brand:'Mi',model:'Redmi 12',type:'Phone',buy:10500,sell:12299,qty:4,status:'In Stock'},
+  {brand:'—',model:'Earphones (Universal)',type:'Accessory',buy:180,sell:350,qty:12,status:'In Stock'},
+  {brand:'—',model:'Tempered Glass (Universal)',type:'Accessory',buy:40,sell:120,qty:25,status:'In Stock'},
+  {brand:'OnePlus',model:'Nord CE 3 Lite',type:'Phone',buy:16500,sell:19999,qty:0,status:'Out of Stock'},
+];
+
+const serviceJobs = [
+  {id:'SRV-021',date:'05 May',customer:'Balaji',phone:'9876543210',device:'Samsung A12',issue:'Screen cracked',status:'In Progress',cost:1200,due:'05 May'},
+  {id:'SRV-022',date:'04 May',customer:'Kavitha',phone:'9123456789',device:'Realme C31',issue:'Battery not charging',status:'Received',cost:500,due:'06 May'},
+  {id:'SRV-023',date:'04 May',customer:'Senthil',phone:'9988776655',device:'Vivo Y21',issue:'Speaker not working',status:'In Progress',cost:400,due:'05 May'},
+  {id:'SRV-024',date:'03 May',customer:'Meena',phone:'9765432100',device:'Oppo A57',issue:'Software issue',status:'Received',cost:300,due:'07 May'},
+  {id:'SRV-025',date:'03 May',customer:'Karthik',phone:'9654321098',device:'Mi Redmi 12',issue:'Water damage',status:'Completed',cost:800,due:'04 May'},
+  {id:'SRV-020',date:'02 May',customer:'Divya',phone:'9543210987',device:'Samsung M14',issue:'Battery replacement',status:'Delivered',cost:600,due:'02 May'},
+];
+
+const customers = [
+  {name:'Ravi Kumar',phone:'9876543210',purchases:3,jobs:1,last:'05 May 2026'},
+  {name:'Priya',phone:'9123456789',purchases:1,jobs:0,last:'05 May 2026'},
+  {name:'Murugan',phone:'9988776655',purchases:2,jobs:2,last:'04 May 2026'},
+  {name:'Selvi',phone:'9765432100',purchases:1,jobs:1,last:'04 May 2026'},
+  {name:'Arjun',phone:'9654321098',purchases:1,jobs:0,last:'03 May 2026'},
+  {name:'Balaji',phone:'9543210987',purchases:4,jobs:3,last:'04 May 2026'},
+  {name:'Kavitha',phone:'9876500001',purchases:0,jobs:1,last:'04 May 2026'},
+];
+
+// RENDER INVENTORY
+function renderInventory(data) {
+  const body = document.getElementById('invBody');
+  body.innerHTML = data.map(p => {
+    const badge = p.status==='In Stock' ? 'badge-green' : p.status==='Low Stock' ? 'badge-red' : 'badge-orange';
+    return `<tr>
+      <td>${p.brand}</td><td>${p.model}</td><td>${p.type}</td>
+      <td>₹${p.buy.toLocaleString()}</td><td>₹${p.sell.toLocaleString()}</td>
+      <td><strong>${p.qty}</strong></td>
+      <td><span class="badge ${badge}">${p.status}</span></td>
+      <td><button class="btn btn-blue btn-sm" style="margin-right:6px" onclick="showToast('Editing ${p.model}…')">Edit</button><button class="btn btn-red btn-sm" onclick="showToast('Deleted ${p.model}')">Del</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterInventory() {
+  const s = document.getElementById('invSearch').value.toLowerCase();
+  const b = document.getElementById('invBrand').value;
+  const t = document.getElementById('invType').value;
+  renderInventory(inventory.filter(p =>
+    (!s || p.model.toLowerCase().includes(s) || p.brand.toLowerCase().includes(s)) &&
+    (!b || p.brand === b) &&
+    (!t || p.type === t)
+  ));
+}
+
+// RENDER SERVICE JOBS
+function renderService(filter) {
+  const body = document.getElementById('serviceBody');
+  const data = filter === 'All' ? serviceJobs : serviceJobs.filter(j => j.status === filter);
+  const badgeMap = {
+    'Received':'badge-blue','In Progress':'badge-yellow','Completed':'badge-green','Delivered':'badge-purple'
+  };
+  body.innerHTML = data.map(j => `<tr>
+    <td><strong>${j.id}</strong></td><td>${j.date}</td>
+    <td>${j.customer}<br><small style="color:var(--muted)">${j.phone}</small></td>
+    <td>${j.device}</td><td>${j.issue}</td>
+    <td><span class="badge ${badgeMap[j.status]}">${j.status}</span></td>
+    <td>₹${j.cost}</td><td>${j.due}</td>
+  </tr>`).join('');
+}
+
+function filterService(status, el) {
+  document.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderService(status);
+}
+
+// RENDER CUSTOMERS
+function renderCustomers(data) {
+  const body = document.getElementById('custBody');
+  body.innerHTML = data.map(c => `<tr>
+    <td><strong>${c.name}</strong></td><td>${c.phone}</td>
+    <td>${c.purchases}</td><td>${c.jobs}</td><td>${c.last}</td>
+  </tr>`).join('');
+}
+
+function filterCustomers(q) {
+  q = q.toLowerCase();
+  renderCustomers(customers.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q)));
+}
+
+// NAVIGATION
+const titles = {
+  dashboard:'Dashboard', inventory:'Inventory', sales:'Sales Transactions',
+  service:'Service Jobs', customers:'Customers', reports:'Reports', settings:'Settings'
+};
+
+function navigate(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('page-title').textContent = titles[page];
+}
+
+// SIDEBAR
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('topbar').classList.toggle('collapsed');
+  document.getElementById('main').classList.toggle('collapsed');
+}
+
+// MODAL
+function openModal(id) { document.getElementById('modal-' + id).classList.add('open'); }
+function closeModal(id, e) {
+  if (!e || e.target.classList.contains('modal-overlay')) {
+    document.getElementById('modal-' + id).classList.remove('open');
+  }
+}
+
+// TOAST
+let toastTimer;
+function showToast(msg) {
+  clearTimeout(toastTimer);
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show');
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// DATE
+function updateDate() {
+  const d = new Date();
+  document.getElementById('topbar-date').textContent = d.toLocaleDateString('en-IN', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+}
+
+// CHARTS
+function initCharts() {
+  // Revenue Bar Chart
+  new Chart(document.getElementById('revenueChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Dec','Jan','Feb','Mar','Apr','May'],
+      datasets: [{
+        label: 'Revenue (₹)',
+        data: [62000, 71000, 58000, 84000, 91000, 88400],
+        backgroundColor: ['#FF6B35','#FF6B35','#FF6B35','#FF6B35','#FF6B35','rgba(255,107,53,0.45)'],
+        borderRadius: 6, borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => '₹' + (v/1000) + 'k' } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // Brand Donut Chart
+  new Chart(document.getElementById('brandChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Samsung','Realme','Vivo','Oppo','Mi (Xiaomi)','OnePlus'],
+      datasets: [{
+        data: [35, 20, 18, 12, 10, 5],
+        backgroundColor: ['#3B82F6','#22C55E','#FF6B35','#7C3AED','#EF4444','#EAB308'],
+        borderWidth: 0, hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } }
+      }
+    }
+  });
+}
+
+// INIT
+renderInventory(inventory);
+renderService('All');
+renderCustomers(customers);
+updateDate();
+setInterval(updateDate, 60000);
+window.addEventListener('load', initCharts);
+</script>
+</body>
+</html>
